@@ -1,0 +1,45 @@
+name: Publish WebAura installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: creedmotions-site ref that still contains apps/webaura/downloads
+        required: true
+        default: cfcc1be
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out installers from creedmotions-site (read-only deploy key)
+        uses: actions/checkout@v4
+        with:
+          repository: Creedproductions/creedmotions-site
+          ref: ${{ inputs.ref }}
+          ssh-key: ${{ secrets.SITE_DEPLOY_KEY }}
+          sparse-checkout: apps/webaura/downloads
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+          path: site
+
+      - name: Upload linked installers to the "downloads" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd site/apps/webaura/downloads
+          ls -la
+          for f in \
+            WebAura-Android-1.6.4-arm64-v8a.apk WebAura-Android-1.6.4-armeabi-v7a.apk WebAura-Android-1.6.4-x86_64.apk \
+            WebAura-AppGallery-1.6.4-arm64-v8a.apk WebAura-Windows-x64-Setup-1.6.4.exe WebAura-macOS-1.2.8.dmg \
+            WebAura-Windows-x64-Setup.exe WebAura-macOS.dmg \
+            WebAura-Android-1.5.7-arm64-v8a.apk WebAura-Android-1.5.7-armeabi-v7a.apk WebAura-Android-1.5.7-x86_64.apk \
+            WebAura-Android-1.2.8-arm64-v8a.apk WebAura-Android-1.2.8-armeabi-v7a.apk WebAura-Android-1.2.8-x86_64.apk \
+            WebAura-Android-1.2.3-arm64-v8a.apk WebAura-Android-1.2.3-armeabi-v7a.apk WebAura-Android-1.2.3-x86_64.apk \
+            WebAura-Windows-x64-Setup-1.2.4.exe WebAura-macOS-1.2.4.dmg; do
+            gh release upload downloads "$f" -R "$GITHUB_REPOSITORY" --clobber && echo "uploaded $f"
+          done
+          gh release view downloads -R "$GITHUB_REPOSITORY" --json assets -q '.assets[] | "\(.size) \(.name)"'
